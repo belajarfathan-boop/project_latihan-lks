@@ -83,4 +83,4 @@ resource "aws_elasticache_cluster" "lks_redis" {
   security_group_ids   = [aws_security_group.db_sg.id]
 
   tags = { Name = "LKS-Redis-Cache" }
-} 
+}
