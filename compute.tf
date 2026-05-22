@@ -164,3 +164,32 @@ resource "aws_autoscaling_group" "lks_asg" {
     propagate_at_launch = true
   }
 } 
+
+# ==========================================
+# 4. AWS CODEDEPLOY (TAMBAHAN BARU)
+# ==========================================
+
+# Membuat Aplikasi CodeDeploy
+resource "aws_codedeploy_app" "lks_codedeploy" {
+  compute_platform = "Server"
+  name             = "lks-codedeploy"
+}
+
+# Membuat Deployment Group untuk Auto Scaling Group
+resource "aws_codedeploy_deployment_group" "lks_dg" {
+  app_name              = aws_codedeploy_app.lks_codedeploy.name
+  deployment_group_name = "lks-deployment-group"
+  
+  # Menggunakan default LabRole dari AWS Academy Learner Lab
+  service_role_arn      = "arn:aws:iam::464253666565:role/LabRole" 
+
+  deployment_config_name = "CodeDeployDefault.OneAtATime"
+
+  # Menyambungkan CodeDeploy langsung ke Auto Scaling Group di atas
+  autoscaling_groups = [aws_autoscaling_group.lks_asg.name] 
+
+  deployment_style {
+    deployment_option = "WITHOUT_TRAFFIC_CONTROL"
+    deployment_type   = "IN_PLACE"
+  }
+} 
