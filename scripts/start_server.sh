@@ -2,21 +2,25 @@
 # Pindah ke folder aplikasi
 cd /home/ec2-user/app
 
-# Daftarkan path secara absolut demi CodeDeploy
-export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH
+# Inject path environment standar Linux secara luas
+export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.nvm/versions/node/$(node -v)/bin
 
-# Pastikan PM2 terpasang secara global menggunakan path absolut npm
-if ! command -v pm2 &> /dev/null
-then
-    echo "PM2 tidak ditemukan, menginstall via path absolut..."
-    sudo /usr/bin/npm install pm2@latest -g
+# Ambil lokasi npm secara dinamis
+NPM_PATH=$(which npm)
+PM2_PATH=$(which pm2)
+
+# Jika PM2 belum terinstall, install secara global menggunakan path npm yang ditemukan
+if [ -z "$PM2_PATH" ]; then
+    echo "PM2 tidak ditemukan, menginstall via $NPM_PATH..."
+    sudo $NPM_PATH install pm2@latest -g
+    PM2_PATH=$(which pm2)
 fi
 
-# Jalankan install dependency aplikasi menggunakan path absolut
-echo "Menjalankan npm install aplikasi..."
-/usr/bin/npm install
+# Jalankan install dependency aplikasi
+echo "Menjalankan npm install..."
+$NPM_PATH install
 
-# Jalankan ulang aplikasi menggunakan path absolut PM2
-echo "Memulai ulang aplikasi dengan PM2..."
-/usr/bin/pm2 delete all || true
-/usr/bin/pm2 start index.js --name "lks-node-app" 
+# Jalankan ulang aplikasi menggunakan PM2 secara dinamis
+echo "Memulai aplikasi dengan PM2..."
+$PM2_PATH delete all || true
+$PM2_PATH start index.js --name "lks-node-app" 
