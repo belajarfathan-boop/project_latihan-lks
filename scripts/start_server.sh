@@ -1,28 +1,37 @@
 #!/bin/bash
 cd /home/ec2-user/app
 
-# Memuat profile agar command node/npm langsung terbaca di session CodeDeploy
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-export PATH=$PATH:/usr/local/bin:/usr/bin
+# PENGAMAN: Menunggu proses install latar belakang EC2 selesai (max 5 menit)
+echo "Menunggu dnf lock dilepaskan oleh sistem..."
+for i in {1..30}; do
+    if ! sudo fuser /var/lib/dnf/lock >/dev/null 2>&1; then
+        echo "Sistem siap, melanjutkan deployment."
+        break
+    fi
+    echo "Sistem masih sibuk, menunggu 10 detik lagi... ($i/30)"
+    sleep 10
+done
 
-# Cek darurat: Jika npm benar-benar belum terinstall, paksa install langsung di sini
+# Daftarkan ulang path global environment agar dikenali CodeDeploy
+export PATH=$PATH:/usr/local/bin:/usr/bin:/bin
+
+# Jika npm belum siap juga, kita paksa install ulang dengan aman
 if ! command -v npm &> /dev/null
 then
-    echo "npm tidak ditemukan, menginstall Node.js..."
+    echo "Menginstall Node.js secara paksa..."
     curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash -
     sudo dnf install -y nodejs
 fi
 
-# Install pm2 jika belum ada
+# Pastikan PM2 terinstall global
 if ! command -v pm2 &> /dev/null
 then
     sudo npm install pm2@latest -g
 fi
 
-# Jalankan instalasi dependencies aplikasi lo
+# Amankan instalasi modul aplikasi lo
 npm install
 
-# Restart aplikasi menggunakan PM2
+# Jalankan ulang aplikasi menggunakan PM2
 pm2 delete all || true
 pm2 start index.js --name "lks-node-app" 
