@@ -2,25 +2,37 @@
 # Pindah ke folder aplikasi
 cd /home/ec2-user/app
 
-# Inject path environment standar Linux secara luas
-export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.nvm/versions/node/$(node -v)/bin
+# Masukkan path standar Linux
+export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH
 
-# Ambil lokasi npm secara dinamis
-NPM_PATH=$(which npm)
-PM2_PATH=$(which pm2)
-
-# Jika PM2 belum terinstall, install secara global menggunakan path npm yang ditemukan
-if [ -z "$PM2_PATH" ]; then
-    echo "PM2 tidak ditemukan, menginstall via $NPM_PATH..."
-    sudo $NPM_PATH install pm2@latest -g
-    PM2_PATH=$(which pm2)
+# PENGAMAN: Jika node/npm belum terinstall di server, kita pasang manual via NVM cepat
+if ! command -v node &> /dev/null; then
+    echo "Node.js tidak ditemukan karena dnf gagal. Menginstall via NVM otomatis..."
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    nvm install 22
+    nvm use 22
+    # Daftarkan path binary nvm ke global PATH skrip ini
+    export PATH=$PATH:$(dirname $(which node))
 fi
+
+# Cari lokasi npm hasil instalasi di atas
+NPM_PATH=$(which npm)
+
+echo "Menggunakan NPM dari: $NPM_PATH"
 
 # Jalankan install dependency aplikasi
 echo "Menjalankan npm install..."
 $NPM_PATH install
 
-# Jalankan ulang aplikasi menggunakan PM2 secara dinamis
+# Cek dan pastikan PM2 terpasang
+if ! command -v pm2 &> /dev/null; then
+    echo "PM2 tidak ditemukan, menginstall secara global..."
+    $NPM_PATH install pm2@latest -g
+fi
+
+# Jalankan ulang aplikasi menggunakan PM2
 echo "Memulai aplikasi dengan PM2..."
-$PM2_PATH delete all || true
-$PM2_PATH start index.js --name "lks-node-app" 
+pm2 delete all || true
+pm2 start index.js --name "lks-node-app" 
