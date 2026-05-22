@@ -5,34 +5,44 @@ cd /home/ec2-user/app
 # Masukkan path standar Linux
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH
 
-# PENGAMAN: Jika node/npm belum terinstall di server, kita pasang manual via NVM cepat
-if ! command -v node &> /dev/null; then
-    echo "Node.js tidak ditemukan karena dnf gagal. Menginstall via NVM otomatis..."
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-    export NVM_DIR="$HOME/.nvm"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-    nvm install 22
-    nvm use 22
-    # Daftarkan path binary nvm ke global PATH skrip ini
-    export PATH=$PATH:$(dirname $(which node))
+# PAKSA NVM menggunakan folder /tmp agar terhindar dari Permission Denied
+export NVM_DIR="/tmp/.nvm"
+
+if [ ! -d "$NVM_DIR" ]; then
+    echo "Membuat folder NVM di /tmp..."
+    mkdir -p "$NVM_DIR"
 fi
 
-# Cari lokasi npm hasil instalasi di atas
-NPM_PATH=$(which npm)
+# Install NVM secara lokal di folder /tmp
+echo "Menginstall NVM ke $NVM_DIR..."
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 
-echo "Menggunakan NPM dari: $NPM_PATH"
+# Load NVM ke dalam skrip ini
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Install Node.js 22 lewat NVM yang sudah di-load
+echo "Menginstall Node.js versi 22..."
+nvm install 22
+nvm use 22
+
+# Ambil lokasi node dan npm yang baru saja terinstall di /tmp
+NODE_BIN_DIR=$(dirname $(which node))
+export PATH=$NODE_BIN_DIR:$PATH
+
+echo "Node.js berhasil aktif di: $(which node)"
+echo "NPM berhasil aktif di: $(which npm)"
 
 # Jalankan install dependency aplikasi
-echo "Menjalankan npm install..."
-$NPM_PATH install
+echo "Menjalankan npm install aplikasi..."
+npm install
 
-# Cek dan pastikan PM2 terpasang
+# Install PM2 lokal di environment NVM /tmp jika belum ada
 if ! command -v pm2 &> /dev/null; then
-    echo "PM2 tidak ditemukan, menginstall secara global..."
-    $NPM_PATH install pm2@latest -g
+    echo "Installing PM2..."
+    npm install pm2@latest -g
 fi
 
 # Jalankan ulang aplikasi menggunakan PM2
-echo "Memulai aplikasi dengan PM2..."
+echo "Memulai ulang aplikasi dengan PM2..."
 pm2 delete all || true
 pm2 start index.js --name "lks-node-app" 
